@@ -103,7 +103,7 @@ class DynamicTableWarper extends React.Component<DynamicTableProps> {
     }
   }
   setData(pagination:IPagination,data:{ [x: string]: unknown }[]){
-    console.log('setData')
+    if(this.mode!='API') return
     this.rawData=data
     this.setState({
       total:pagination.total,
@@ -120,8 +120,7 @@ class DynamicTableWarper extends React.Component<DynamicTableProps> {
     const rows: {id:string,subRows:{ [x: string]: string | number | boolean;}[] }[]=[];
     const fo=this.props.config.flatlingOptions[flatlingOption] || this.props.config.flatlingOptions.base
     const flatter= new ObjectFlatter(fo)
-    for(let i=((this.state.currentPage-1)*this.state.rowsPerPage); i<(this.state.currentPage*this.state.rowsPerPage);i++){
-      console.log()
+    for(let i=0; i<rawData.length;i++){
       if(rawData[i]==null) break
       const subRows: { [x: string]: string | number | boolean; }[]=[];
       flatter.flatten(rawData[i]).forEach(e=>subRows.push(e))
@@ -137,7 +136,11 @@ class DynamicTableWarper extends React.Component<DynamicTableProps> {
   }
   updateComponent(){
       console.log('updateComponent',this.state)
-      this.setState(this.flatten(this.state.flattingOption,this.rawData));
+      const pageRows=[]
+      for(let i=((this.state.currentPage-1)*this.state.rowsPerPage); i<(this.state.currentPage*this.state.rowsPerPage);i++){
+        pageRows.push(this.rawData[i])
+      }
+      this.setState(this.flatten(this.state.flattingOption,pageRows));
   }
   // componentDidUpdate(prevProps:DynamicTableProps) {
   componentDidUpdate() {
@@ -200,7 +203,7 @@ class DynamicTableWarper extends React.Component<DynamicTableProps> {
     }
     // console.log("viewModal_id",id)
     const rawData=this.rawData.find(e=> e[this.dataId]==id)
-    console.log("rawData",rawData)
+    console.log("rawData",this.state.viewModal_flattingOption,rawData)
 
     
     if(rawData){
@@ -214,8 +217,8 @@ class DynamicTableWarper extends React.Component<DynamicTableProps> {
     }
     // console.log(this.state)
   }
+
   handleHistoryModal(id?: string){
-    console.log("editModal_id",id)
     if(id!=null) {
       this.setState({
         editModal_id:id,
@@ -226,7 +229,7 @@ class DynamicTableWarper extends React.Component<DynamicTableProps> {
     const rawData=this.rawData.find(e=> e[this.dataId]==id)
         
     if(rawData){
-
+      let editModal_currentEmbedment= this.state.editModal_currentEmbedment
       const changeHistory=rawData.changeHistory as {
         changedAt:string 
         changedBy: string
@@ -234,7 +237,7 @@ class DynamicTableWarper extends React.Component<DynamicTableProps> {
       }[]
       const changes:IEmbedment[]=[]
       const f=[]
-      if(changeHistory){
+      if(changeHistory && changeHistory.length>0){
         for (let i = changeHistory.length - 1; i >= 0; i--) {
               const c:IEmbedment={
                 label:(new Date(changeHistory[i].changedAt)).toLocaleString(),
@@ -247,24 +250,35 @@ class DynamicTableWarper extends React.Component<DynamicTableProps> {
               f.push(c.obj)
               changes.push(c)
             }
+        editModal_currentEmbedment=changes[0].value
+      }else{
+        editModal_currentEmbedment="N/A"
       }
       this.setState({
         editModal_embedment:changes,
         editModal_isOpen:true,
-        editModal_currentEmbedment:this.state.editModal_currentEmbedment?this.state.editModal_currentEmbedment:changes[0].value,
+        editModal_currentEmbedment:editModal_currentEmbedment,
       },()=>{this.changeHistoryModal()})
+    }else{
+      console.log("rawData is empty")
     }
   }
   changeHistoryModal(){
+    console.log(this.state)
     const rawData=this.rawData.find(e=> e[this.dataId]==this.state.editModal_id)
     const change=this.state.editModal_embedment.find(e=>e.value==this.state.editModal_currentEmbedment)
     if(rawData && change){
-      console.log('dddddddddddddddddddddddddddddddddddd')
       const flatten=this.flatten(this.state.editModal_flattingOption,[rawData,change.obj])
         this.setState({
           editModal_latestRows:[flatten.rows[0]],
           editModal_oldRows:[flatten.rows[1]],
           editModal_columns:flatten.columns
+        })
+    }else{
+      this.setState({
+          editModal_latestRows:[],
+          editModal_oldRows:[],
+          editModal_columns:['No History']
         })
     }
   }
@@ -273,10 +287,24 @@ class DynamicTableWarper extends React.Component<DynamicTableProps> {
     const { rows, columns, currentPage, rowsPerPage,flattingOption } = this.state;
     const totalPages = Math.ceil(this.state.total/this.state.rowsPerPage);
     const { searchComponent: SearchComponent } = this.props;
-
+    const actionPanelOptions=[
+              {
+                name: '👁️‍🗨️',
+                onclick:  (id: string): void=> {
+                  this.handleViewModal(id)
+                }
+              }
+            ]
+  if(this.mode=='API') actionPanelOptions.push({
+                name: '⌚',
+                onclick: (id: string): void=> {
+                  console.log("Onclick History",id)
+                  this.handleHistoryModal(id)
+                }
+              })
     return (
       <div style={{display:'flex',alignItems:'flex-start',flexDirection:'row'}}> 
-        <SearchComponent></SearchComponent>
+        {this.mode=='API' && (<SearchComponent/>)}
         <div style={{display:'flex',flexDirection:'column',alignItems:'flex-start'}}>
 
           <div style={{ marginTop: '10px' }}>
@@ -308,21 +336,7 @@ class DynamicTableWarper extends React.Component<DynamicTableProps> {
             
           </div>
           <DynamicTable action={{
-            options:[
-              {
-                name: '👁️‍🗨️',
-                onclick:  (id: string): void=> {
-                  this.handleViewModal(id)
-                }
-              },
-              {
-                name: '⌚',
-                onclick: (id: string): void=> {
-                  console.log("Onclick History",id)
-                  this.handleHistoryModal(id)
-                }
-              }
-            ]
+            options:actionPanelOptions
           }} rows={rows} columns={columns}></DynamicTable>
         </div>
         

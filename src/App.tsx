@@ -31,19 +31,31 @@ function App() {
         }
       }, [handlePaginationChange]);
   
+
+  
   const [st, setAge]= useState(0)
+  // This line is just for tricking Ts.s
+  const mode:"ENG"|'API'= ExampleHnM[0].orderNo=='307059-1643'?"API":'ENG';
+
   return (
     <>
     <button onClick={() =>{
-      console.log('st[0].ind',st)
-      tableRef.current?.pushData(ExampleHnM[st])
-      setAge(st+1)
-    }}>
-            Emulate Engine Data
-    </button>
+      console.log("Mode",mode)
+      }}>
+              Current Mode is {mode}
+      </button>
+    {
+      mode=='ENG' && <button onClick={() =>{
+        console.log('st[0].ind',st)
+        tableRef.current?.pushData(ExampleHnM[st])
+        setAge(st+1)
+      }}>
+              Emulate Engine Data
+      </button>
+    }
+    
       
-    <DynamicTableWarper ref={tableRef}
-      
+    <DynamicTableWarper  ref={tableRef}
       searchComponent={() => {
         return <div>
           <form>
@@ -68,10 +80,9 @@ function App() {
           </form>
         </div>;
       }}
-
       config={
         {
-          mode:"API",
+          mode:mode,
           dataId:'orderNo',
           onPaginationChange: handlePaginationChange,
           flatlingOptions:{
